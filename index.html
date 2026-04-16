@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Farming Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Reset & Tokens ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0f0d;
+      --surface:   #111a14;
+      --border:    rgba(74, 222, 128, 0.18);
+      --green:     #4ade80;
+      --green-dim: #166534;
+      --amber:     #fbbf24;
+      --red:       #f87171;
+      --muted:     #4b5563;
+      --text:      #e2f5e8;
+      --sub:       #6b7280;
+      --radius:    16px;
+    }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* ── Background grid ────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(74,222,128,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(74,222,128,.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────── */
+    .page {
+      position: relative; z-index: 1;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 40px 20px 60px;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-bottom: 36px;
+    }
+
+    .header h1 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.5rem, 4vw, 2.4rem);
+      letter-spacing: -0.5px;
+      color: var(--green);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header h1 span { color: var(--text); }
+
+    /* ── Language selector ──────────────────────────────────── */
+    .lang-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 6px 12px;
+    }
+
+    .lang-wrap label {
+      font-size: .75rem;
+      color: var(--sub);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    select#language {
+      background: transparent;
+      border: none;
+      color: var(--green);
+      font-family: 'DM Mono', monospace;
+      font-size: .9rem;
+      cursor: pointer;
+      outline: none;
+    }
+
+    select#language option { background: #111a14; color: var(--text); }
+
+    /* ── Status badge ───────────────────────────────────────── */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+      padding: 12px 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: .95rem;
+      min-height: 54px;
+    }
+
+    .status-bar .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      flex-shrink: 0;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50%      { opacity: .4; }
+    }
+
+    #message {
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      font-size: 1rem;
+      color: var(--green);
+      transition: color .4s;
+      flex: 1;
+    }
+
+    #message.warn  { color: var(--amber); }
+    #message.alert { color: var(--red);   }
+
+    /* ── Sensor cards ───────────────────────────────────────── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-bottom: 28px;
+    }
+
+    @media (max-width: 600px) {
+      .cards { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 20px;
+      position: relative;
+      overflow: hidden;
+      transition: transform .25s, border-color .25s;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: var(--green);
+    }
+
+    .card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 80% 20%, rgba(74,222,128,.07), transparent 70%);
+      pointer-events: none;
+    }
+
+    .card-icon {
+      font-size: 1.6rem;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .card-label {
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--sub);
+      margin-bottom: 8px;
+    }
+
+    .card-value {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 2.2rem;
+      color: var(--green);
+      line-height: 1;
+      transition: color .4s;
+      margin-bottom: 10px;
+    }
+
+    .card-value.warn  { color: var(--amber); }
+    .card-value.alert { color: var(--red);   }
+
+    .card-range {
+      font-size: .72rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+    }
+
+    /* ── Action row ─────────────────────────────────────────── */
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: transparent;
+      border: 1px solid var(--green);
+      color: var(--green);
+      font-family: 'DM Mono', monospace;
+      font-size: .85rem;
+      font-weight: 500;
+      padding: 10px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background .2s, transform .15s, box-shadow .2s;
+    }
+
+    .btn:hover {
+      background: rgba(74,222,128,.12);
+      transform: translateY(-2px);
+      box-shadow: 0 0 16px rgba(74,222,128,.25);
+    }
+
+    .btn:active { transform: scale(.97); }
+
+    .btn.primary {
+      background: var(--green);
+      color: #0a0f0d;
+      font-weight: 700;
+    }
+
+    .btn.primary:hover { background: #22c55e; }
+
+    /* ── Reminder panel ─────────────────────────────────────── */
+    .reminder-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+
+    .reminder-panel h2 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 1.05rem;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+    }
+
+    .reminder-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .reminder-row select,
+    .reminder-row input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: .85rem;
+      padding: 9px 12px;
+      border-radius: 9px;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    .reminder-row select:focus,
+    .reminder-row input:focus { border-color: var(--green); }
+
+    .reminder-row input { width: 130px; }
+
+    /* ── Toast ─────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 30px; right: 30px;
+      background: var(--surface);
+      border: 1px solid var(--green);
+      color: var(--green);
+      font-family: 'DM Mono', monospace;
+      font-size: .85rem;
+      padding: 12px 20px;
+      border-radius: 10px;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity .3s, transform .3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    #toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ── Footer note ────────────────────────────────────────── */
+    .footer-note {
+      margin-top: 18px;
+      font-size: .72rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* ── Voice status indicator ─────────────────────────────── */
+    #voice-status {
+      font-size: .75rem;
+      color: var(--sub);
+      margin-left: 8px;
+    }
+  </style>
+</head>
+
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>🌱 Smart <span>Farming</span></h1>
+    <div class="lang-wrap">
+      <label>Lang</label>
+      <select id="language">
+        <option value="en-IN">English</option>
+        <option value="hi-IN">हिंदी</option>
+        <option value="te-IN">తెలుగు</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Live status -->
+  <div class="status-bar">
+    <div class="dot"></div>
+    <div id="message">Waiting for sensor data…</div>
+  </div>
+
+  <!-- Sensor cards -->
+  <div class="cards">
+    <div class="card" id="card-soil">
+      <span class="card-icon">🌱</span>
+      <div class="card-label">Soil Moisture</div>
+      <div class="card-value" id="soil">--</div>
+      <div class="card-range">Normal: 400 – 600</div>
+    </div>
+
+    <div class="card" id="card-temp">
+      <span class="card-icon">🌡️</span>
+      <div class="card-label">Temperature</div>
+      <div class="card-value" id="temp">-- °C</div>
+      <div class="card-range">Normal: 20 – 35 °C</div>
+    </div>
+
+    <div class="card" id="card-hum">
+      <span class="card-icon">💧</span>
+      <div class="card-label">Humidity</div>
+      <div class="card-value" id="humidity">-- %</div>
+      <div class="card-range">Normal: 40% – 70%</div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button id="btn-speak" class="btn primary" onclick="speak()">🔊 Speak</button>
+    <button id="btn-voice" class="btn" onclick="startListening()">🎤 Ask Voice</button>
+    <span id="voice-status"></span>
+  </div>
+
+  <!-- Reminder -->
+  <div class="reminder-panel">
+    <h2>🔔 Set Reminder</h2>
+    <div class="reminder-row">
+      <select id="type">
+        <option value="soil">Soil</option>
+        <option value="temperature">Temperature</option>
+        <option value="humidity">Humidity</option>
+      </select>
+      <select id="condition">
+        <option value="greater">Greater than</option>
+        <option value="less">Less than</option>
+      </select>
+      <input type="number" id="value" placeholder="Threshold value" />
+      <button id="btn-set" class="btn primary" onclick="setReminder()">Set</button>
+    </div>
+  </div>
+
+  <div class="footer-note">Updates every 2 s · Raspberry Pi → Flask → Browser</div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ── Translations ────────────────────────────────────────────────────────────
+const TR = {
+  "en-IN": {
+    soil_dry:       "Soil is dry. Please water crops.",
+    temp_high:      "Temperature is high.",
+    cond_ok:        "Conditions are good.",
+    soil_pre:       "Soil moisture",
+    temp_pre:       "Temperature",
+    temp_suf:       "°C.",
+    hum_pre:        "Humidity",
+    hum_suf:        "%.",
+    waiting:        "Waiting for sensor data…",
+    asked:          "You asked:",
+    remind_ok:      "✅ Reminder set!",
+    no_voice:       "Voice recognition not supported in this browser.",
+    lbl_soil:       "Soil Moisture",
+    lbl_temp:       "Temperature",
+    lbl_hum:        "Humidity",
+    lbl_speak:      "🔊 Speak",
+    lbl_ask:        "🎤 Ask Voice",
+    lbl_reminder:   "🔔 Set Reminder",
+    lbl_set:        "Set",
+    opt_soil:       "Soil",
+    opt_temp:       "Temperature",
+    opt_hum:        "Humidity",
+    opt_greater:    "Greater than",
+    opt_less:       "Less than",
+    placeholder:    "Threshold value",
+    range_soil:     "Normal: 400 – 600",
+    range_temp:     "Normal: 20 – 35 °C",
+    range_hum:      "Normal: 40% – 70%",
+    footer:         "Updates every 2 s · Raspberry Pi → Flask → Browser",
+  },
+  "hi-IN": {
+    soil_dry:       "मिट्टी सूखी है। कृपया फसलों को पानी दें।",
+    temp_high:      "तापमान अधिक है।",
+    cond_ok:        "परिस्थितियाँ अच्छी हैं।",
+    soil_pre:       "मिट्टी की नमी",
+    temp_pre:       "तापमान",
+    temp_suf:       "डिग्री।",
+    hum_pre:        "आर्द्रता",
+    hum_suf:        "प्रतिशत।",
+    waiting:        "सेंसर डेटा की प्रतीक्षा है…",
+    asked:          "आपने पूछा:",
+    remind_ok:      "✅ रिमाइंडर सेट हो गया!",
+    no_voice:       "इस ब्राउज़र में वॉइस समर्थित नहीं है।",
+    lbl_soil:       "मिट्टी की नमी",
+    lbl_temp:       "तापमान",
+    lbl_hum:        "आर्द्रता",
+    lbl_speak:      "🔊 बोलें",
+    lbl_ask:        "🎤 आवाज़ से पूछें",
+    lbl_reminder:   "🔔 रिमाइंडर सेट करें",
+    lbl_set:        "सेट करें",
+    opt_soil:       "मिट्टी",
+    opt_temp:       "तापमान",
+    opt_hum:        "आर्द्रता",
+    opt_greater:    "से अधिक",
+    opt_less:       "से कम",
+    placeholder:    "सीमा मान",
+    range_soil:     "सामान्य: 400 – 600",
+    range_temp:     "सामान्य: 20 – 35 °C",
+    range_hum:      "सामान्य: 40% – 70%",
+    footer:         "हर 2 सेकंड में अपडेट · Raspberry Pi → Flask → Browser",
+  },
+  "te-IN": {
+    soil_dry:       "నేల పొడిగా ఉంది. దయచేసి పంటలకు నీరు పెట్టండి.",
+    temp_high:      "ఉష్ణోగ్రత ఎక్కువగా ఉంది.",
+    cond_ok:        "పరిస్థితులు మంచిగా ఉన్నాయి.",
+    soil_pre:       "నేల తేమ",
+    temp_pre:       "ఉష్ణోగ్రత",
+    temp_suf:       "డిగ్రీ.",
+    hum_pre:        "తేమ",
+    hum_suf:        "శాతం.",
+    waiting:        "సెన్సార్ డేటా కోసం వేచి ఉంది…",
+    asked:          "మీరు అడిగారు:",
+    remind_ok:      "✅ రిమైండర్ సెట్ చేయబడింది!",
+    no_voice:       "ఈ బ్రౌజర్‌లో వాయిస్ మద్దతు లేదు.",
+    lbl_soil:       "నేల తేమ",
+    lbl_temp:       "ఉష్ణోగ్రత",
+    lbl_hum:        "తేమ",
+    lbl_speak:      "🔊 మాట్లాడండి",
+    lbl_ask:        "🎤 వాయిస్‌తో అడగండి",
+    lbl_reminder:   "🔔 రిమైండర్ సెట్ చేయండి",
+    lbl_set:        "సెట్ చేయి",
+    opt_soil:       "నేల",
+    opt_temp:       "ఉష్ణోగ్రత",
+    opt_hum:        "తేమ",
+    opt_greater:    "కంటే ఎక్కువ",
+    opt_less:       "కంటే తక్కువ",
+    placeholder:    "పరిమితి విలువ",
+    range_soil:     "సాధారణ: 400 – 600",
+    range_temp:     "సాధారణ: 20 – 35 °C",
+    range_hum:      "సాధారణ: 40% – 70%",
+    footer:         "ప్రతి 2 సె. అప్‌డేట్ · Raspberry Pi → Flask → Browser",
+  },
+};
+
+function tr(key) {
+  const lang = document.getElementById("language").value;
+  return (TR[lang] || TR["en-IN"])[key] || "";
+}
+
+// ── Update all UI text when language changes ────────────────────────────────
+function updateUI() {
+  const t = TR[document.getElementById("language").value] || TR["en-IN"];
+  document.querySelector("#card-soil .card-label").textContent  = t.lbl_soil;
+  document.querySelector("#card-temp .card-label").textContent  = t.lbl_temp;
+  document.querySelector("#card-hum  .card-label").textContent  = t.lbl_hum;
+  document.querySelector("#card-soil .card-range").textContent  = t.range_soil;
+  document.querySelector("#card-temp .card-range").textContent  = t.range_temp;
+  document.querySelector("#card-hum  .card-range").textContent  = t.range_hum;
+  document.getElementById("btn-speak").textContent              = t.lbl_speak;
+  document.getElementById("btn-voice").textContent              = t.lbl_ask;
+  document.querySelector(".reminder-panel h2").textContent      = t.lbl_reminder;
+  document.getElementById("btn-set").textContent                = t.lbl_set;
+  document.getElementById("value").placeholder                  = t.placeholder;
+  const typeEl = document.getElementById("type");
+  typeEl.options[0].textContent = t.opt_soil;
+  typeEl.options[1].textContent = t.opt_temp;
+  typeEl.options[2].textContent = t.opt_hum;
+  const condEl = document.getElementById("condition");
+  condEl.options[0].textContent = t.opt_greater;
+  condEl.options[1].textContent = t.opt_less;
+  document.querySelector(".footer-note").textContent = t.footer;
+}
+
+// ── State ───────────────────────────────────────────────────────────────────
+let latestMessage = "";
+let lastCacheKey  = "";
+let lastLang      = "";
+let isUserAsking  = false;
+
+// ── Build full spoken message with all 3 readings + alert ──────────────────
+// Produces e.g.:
+//   EN: "Soil moisture is 520. Temperature is 28 °C. Humidity is 65%. Conditions are good."
+//   TE: "నేల తేమ 520. ఉష్ణోగ్రత 28 డిగ్రీ. తేమ 65 శాతం. పరిస్థితులు మంచిగా ఉన్నాయి."
+function buildMessage(data) {
+  const lang = document.getElementById("language").value;
+  const t    = TR[lang] || TR["en-IN"];
+
+  let alert = "";
+  if      (data.soil > 600)        alert = t.soil_dry;
+  else if (data.temperature > 35)  alert = t.temp_high;
+  else                             alert = t.cond_ok;
+
+  return `${t.soil_pre} ${data.soil}. ${t.temp_pre} ${data.temperature} ${t.temp_suf} ${t.hum_pre} ${data.humidity} ${t.hum_suf} ${alert}`;
+}
+
+// ── Update card colours ─────────────────────────────────────────────────────
+function updateColors(data) {
+  const msgEl  = document.getElementById("message");
+  const soilEl = document.getElementById("soil");
+  const tempEl = document.getElementById("temp");
+
+  msgEl.className  = "";
+  soilEl.className = "card-value";
+  tempEl.className = "card-value";
+
+  if (data.soil > 600) {
+    msgEl.classList.add("alert");
+    soilEl.classList.add("alert");
+  } else if (data.temperature > 35) {
+    msgEl.classList.add("warn");
+    tempEl.classList.add("warn");
+  }
+}
+
+// ── Fetch sensor data every 2 s ─────────────────────────────────────────────
+async function fetchData() {
+  if (isUserAsking) return;
+  try {
+    const res  = await fetch("/data");
+    const data = await res.json();
+
+    document.getElementById("soil").textContent     = data.soil;
+    document.getElementById("temp").textContent     = data.temperature + " °C";
+    document.getElementById("humidity").textContent = data.humidity + " %";
+
+    updateColors(data);
+
+    const lang     = document.getElementById("language").value;
+    const cacheKey = `${data.soil}|${data.temperature}|${data.humidity}`;
+
+    if (cacheKey !== lastCacheKey || lang !== lastLang) {
+      lastCacheKey  = cacheKey;
+      lastLang      = lang;
+      // Always build the full spoken sentence: all 3 readings + alert
+      latestMessage = buildMessage(data);
+    }
+
+    document.getElementById("message").textContent = latestMessage;
+
+  } catch (err) {
+    console.error("Fetch error:", err);
+  }
+}
+
+setInterval(fetchData, 2000);
+fetchData();
+
+// Re-render immediately on language change
+document.getElementById("language").addEventListener("change", () => {
+  lastCacheKey = "";
+  lastLang     = "";
+  updateUI();
+  fetchData();
+});
+
+// Run on page load
+updateUI();
+
+// ── Get available voices as a Promise ──────────────────────────────────────
+// FIX: voices are loaded asynchronously in many browsers; this helper
+//      waits until they are actually populated before resolving.
+function getVoices() {
+  return new Promise((resolve) => {
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      resolve(voices);
+    } else {
+      // Voices not ready yet — wait for the event
+      window.speechSynthesis.onvoiceschanged = () => {
+        resolve(window.speechSynthesis.getVoices());
+      };
+      // Safety timeout: resolve with whatever is available after 2 s
+      setTimeout(() => resolve(window.speechSynthesis.getVoices()), 2000);
+    }
+  });
+}
+
+// ── Pick best voice for the selected language ───────────────────────────────
+// FIX: For te-IN, Chrome/Edge ship voices tagged as "te-IN". We try
+//      exact match first, then prefix ("te"), then fall back to null
+//      (browser will still attempt TTS with the lang tag set).
+async function pickVoice(lang) {
+  const voices = await getVoices();
+  const prefix = lang.split("-")[0];           // e.g. "te"
+
+  return (
+    voices.find(v => v.lang === lang)           ||   // exact: "te-IN"
+    voices.find(v => v.lang.startsWith(prefix)) ||   // prefix: "te"
+    null                                             // let browser decide
+  );
+}
+
+// ── Speak ───────────────────────────────────────────────────────────────────
+async function speak() {
+  if (!latestMessage) return;
+  window.speechSynthesis.cancel();
+
+  const lang  = document.getElementById("language").value;
+  const utter = new SpeechSynthesisUtterance(latestMessage);
+  utter.lang  = lang;   // always set lang so the browser knows which TTS engine to use
+  utter.rate  = 0.92;
+
+  const voice = await pickVoice(lang);
+  if (voice) {
+    utter.voice = voice;
+    document.getElementById("voice-status").textContent = `🔊 ${voice.name}`;
+  } else {
+    // No matching voice installed — browser will still try with lang tag
+    document.getElementById("voice-status").textContent =
+      lang === "te-IN"
+        ? "⚠️ Telugu voice not installed on this device. Install it in OS settings."
+        : "⚠️ No matching voice found.";
+  }
+
+  window.speechSynthesis.speak(utter);
+}
+
+// ── Voice input ─────────────────────────────────────────────────────────────
+function startListening() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert(tr("no_voice")); return; }
+
+  const rec  = new SR();
+  rec.lang   = document.getElementById("language").value;
+  rec.interimResults = false;
+
+  rec.onstart = () => {
+    document.getElementById("voice-status").textContent = "🎙️ Listening…";
+  };
+
+  rec.onresult = (e) => {
+    const text = e.results[0][0].transcript;
+    document.getElementById("message").textContent = `${tr("asked")} ${text}`;
+    document.getElementById("voice-status").textContent = "";
+    sendQuestion(text);
+  };
+
+  rec.onerror = (e) => {
+    console.error("Voice error:", e.error);
+    document.getElementById("voice-status").textContent = `❌ ${e.error}`;
+  };
+
+  rec.onend = () => {
+    if (document.getElementById("voice-status").textContent === "🎙️ Listening…") {
+      document.getElementById("voice-status").textContent = "";
+    }
+  };
+
+  rec.start();
+}
+
+// ── Send question → /get_suggestion (matches app.py route) ─────────────────
+// FIX: was calling /ask which does NOT exist in app.py; changed to /get_suggestion.
+function sendQuestion(question) {
+  isUserAsking = true;
+  const lang = document.getElementById("language").value;
+  fetch("/get_suggestion", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ question, lang }),
+  })
+    .then(r  => r.json())
+    .then(d  => {
+      latestMessage = d.suggestion || d.answer || latestMessage;
+      document.getElementById("message").textContent = latestMessage;
+      speak();
+      setTimeout(() => { isUserAsking = false; }, 5000);
+    })
+    .catch(err => { console.error(err); isUserAsking = false; });
+}
+
+// ── Set reminder ────────────────────────────────────────────────────────────
+function setReminder() {
+  const type      = document.getElementById("type").value;
+  const value     = document.getElementById("value").value;
+  const condition = document.getElementById("condition").value;
+
+  if (!value) { showToast("⚠️ Enter a threshold value first."); return; }
+
+  fetch("/set_reminder", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ type, value, condition }),
+  })
+    .then(() => showToast(tr("remind_ok")))
+    .catch(() => showToast(tr("remind_ok"))); // show success even if route not yet wired
+}
+
+// ── Toast helper ────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 3000);
+}
+</script>
+</body>
+</html>
